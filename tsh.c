@@ -15,7 +15,7 @@
 #include <errno.h>
 
 /* Misc manifest constants */
-#define MAXLINE    1024   /* max line size */
+#define MAXLINE    1024   /* max line size */ 
 #define MAXARGS     128   /* max args on a command line */
 #define MAXJOBS      16   /* max jobs at any point in time */
 #define MAXJID    1<<16   /* max job ID */
@@ -178,29 +178,26 @@ void eval(char *cmdline)
         return; 
     }
 
-    if(curr_job == 0) {
+    if(!curr_job) {
         sigemptyset(&signal_mask);
         sigaddset(&signal_mask, SIGCHLD);
         sigprocmask(SIG_BLOCK, &signal_mask, NULL);
-        pid = fork();
-        if (pid == 0) { // if child
+        if ((pid =fork()) == 0) { // if child
             setpgid(0,0);
             sigprocmask(SIG_UNBLOCK, &signal_mask, NULL);
-            if(execvp(args[0],args) == -1) { 
+            if(execvp(args[0],args) < 0) { 
                 printf("%s: Command not found \n", args[0]);
                 exit(0);
             }
         }
-        else { //if parent
-            if(bg_job == 0) { //foreground 
-                addjob(jobs, pid, FG, cmdline);
-                waitfg(pid); //&&&wait here or there?
-            }
-            else { //foreground
-                addjob(jobs, pid, BG, cmdline);
-            }
-            sigprocmask(SIG_UNBLOCK, &signal_mask, NULL);
+        if(bg_job == 0) { //foreground 
+            addjob(jobs, pid, FG, cmdline);
+            waitfg(pid); //&&&wait here or there?
         }
+        else { //foreground
+            addjob(jobs, pid, BG, cmdline);
+        }
+        sigprocmask(SIG_UNBLOCK, &signal_mask, NULL);
     }
     return;
 }
@@ -268,11 +265,14 @@ int parseline(const char *cmdline, char **argv)
  */
 int builtin_cmd(char **argv) 
 {
-    if(strcmp(argv[0], "quit") == 0) {
+    if(!strcmp(argv[0], "quit")) {
         exit(0);
     }
-    else if (strcmp(argv[0], "jobs") == 0) {
+    else if (!strcmp(argv[0], "jobs")) {
         listjobs(jobs);
+        return 1;
+    }
+    else if (!strcmp(argv[0], "&")) {
         return 1;
     }
     else if (strcmp(argv[0], "fg") == 0 || strcmp(argv[0], "bg") == 0) {
@@ -299,15 +299,15 @@ void do_bgfg(char **argv)
 
     struct job_t *job;
     if(argv[1][0] == '%') { //look for jid
-        int jid = atoi(argv[1][1]); //&&&argv[1][1] - '0'
+        int jid = atoi(&argv[1][1]);
         job = getjobjid(jobs,jid);
         if(job == NULL) { //wrong jid
             printf("INVALID JID\n");
             return;
         }
     }
-    else if (atoi(argv[1][0]) != NULL) { //pid
-        int pid = atoi(argv[1][0]);
+    else if (atoi(argv[1])) { //pid
+        int pid = atoi(argv[1]);
         job = getjobpid(jobs, pid);
         if(job == NULL) {
             printf("Invalid PID\n");
@@ -320,12 +320,12 @@ void do_bgfg(char **argv)
     }
 
     int id = job->pid;
-    if (strcmp(argv[0], "fg") == 0) {
+    if (!strcmp(argv[0], "fg")) {
         job->state = FG;
         kill(-id, SIGCONT);
         waitfg(id);
     }
-    else if (strcmp(argv[0], "bg") == 0) {
+    else if (!strcmp(argv[0], "bg")) {
         job->state = BG;
         kill(-id, SIGCONT);
     }
@@ -385,8 +385,9 @@ void sigint_handler(int sig)
         return;
     }
     kill(-fgpid(jobs), SIGINT);
-
-    printf("Job[%d] (%d) terminated ... %d\n");
+    deletejob(jobs,fgpid(jobs));
+    
+    printf("Job [%d] terminated ... %d\n", jid, pid, sig);
     return;
 }
 
@@ -402,7 +403,7 @@ void sigtstp_handler(int sig)
     }
     kill(-fgpid(jobs), SIGTSTP);
 
-    printf("Job [%d] (%d) terminated ... %d\n");
+    printf("Job [%d] stopped ... %d\n", jid, pid, sig);
     return;
 }
 
