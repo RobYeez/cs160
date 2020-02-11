@@ -192,9 +192,9 @@ void eval(char *cmdline)
         }
         if(bg_job == 0) { //foreground 
             addjob(jobs, pid, FG, cmdline);
-            waitfg(pid); //&&&wait here or there?
+            waitfg(pid);
         }
-        else { //foreground
+        else { //background
             addjob(jobs, pid, BG, cmdline);
         }
         sigprocmask(SIG_UNBLOCK, &signal_mask, NULL);
@@ -362,7 +362,7 @@ void sigchld_handler(int sig)
     pid_t pid;
     int status;
     struct job_t *job;
-    while(pid = waitpid(-1, &status, WNOHANG|WUNTRACED) > 0) { //&&&maybe no wuntraced
+    while(pid = waitpid(-1, &status, WNOHANG|WUNTRACED) > 0) { 
         if(WIFEXITED(status) || WIFSIGNALED(status)) { //child fin or by signal
             deletejob(jobs, pid); 
         }
@@ -381,7 +381,7 @@ void sigchld_handler(int sig)
  */
 void sigint_handler(int sig) 
 {
-    if(fgpid(jobs) == 0) { //&&&
+    if(!fgpid(jobs)) { 
         return;
     }
     kill(-fgpid(jobs), SIGINT);
@@ -398,7 +398,7 @@ void sigint_handler(int sig)
  */
 void sigtstp_handler(int sig) 
 {
-    if(fgpid(jobs) == 0) { //&&&
+    if(fgpid(jobs) == 0) {
         return;
     }
     kill(-fgpid(jobs), SIGTSTP);
