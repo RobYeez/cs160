@@ -387,7 +387,7 @@ void sigint_handler(int sig)
     kill(-fgpid(jobs), SIGINT);
     deletejob(jobs,fgpid(jobs));
     
-    printf("Job [%d] terminated ... %d\n", jid, pid, sig);
+    printf("Job [%d] terminated ... %d\n");
     return;
 }
 
@@ -403,7 +403,7 @@ void sigtstp_handler(int sig)
     }
     kill(-fgpid(jobs), SIGTSTP);
 
-    printf("Job [%d] stopped ... %d\n", jid, pid, sig);
+    printf("Job [%d] stopped ... %d\n");
     return;
 }
 
